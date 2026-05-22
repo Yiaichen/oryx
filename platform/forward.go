@@ -395,6 +395,9 @@ type ForwardTask struct {
 	// The forward worker.
 	forwardWorker *ForwardWorker
 
+	// Retry controller for managing backoff and max-retry limits.
+	retry *FFmpegRetryController
+
 	// To protect the fields.
 	lock sync.Mutex
 }
@@ -450,6 +453,10 @@ func (v *ForwardTask) Restart(ctx context.Context) error {
 		return errors.Wrapf(err, "unmarshal %v", b)
 	}
 
+	if v.retry != nil {
+		v.retry.Reset()
+	}
+
 	return nil
 }
 
@@ -487,6 +494,7 @@ func (v *ForwardTask) queryFrame() (int32, string, string, string, string, strin
 
 func (v *ForwardTask) Initialize(ctx context.Context, w *ForwardWorker) error {
 	v.forwardWorker = w
+	v.retry = NewFFmpegRetryController()
 	logger.Tf(ctx, "forward initialize uuid=%v, platform=%v", v.UUID, v.Platform)
 
 	if err := v.saveTask(ctx); err != nil {
@@ -567,12 +575,31 @@ func (v *ForwardTask) Run(ctx context.Context) error {
 	}
 
 	for ctx.Err() == nil {
-		if err := pfn(ctx); err != nil {
-			logger.Wf(ctx, "ignore %v err %+v", v.String(), err)
-
+		if v.retry.IsDisabled() {
+			logger.Wf(ctx, "forward: task disabled after %v consecutive failures, waiting for restart",
+				FFmpegRetryMaxFailures)
 			select {
 			case <-ctx.Done():
-			case <-time.After(3500 * time.Millisecond):
+			}
+			continue
+		}
+
+		v.retry.OnAttemptStart()
+		err := pfn(ctx)
+		ready := v.firstReadyTime != nil
+		shouldContinue := v.retry.OnAttemptResult(ready, err)
+
+		if err != nil {
+			delay := v.retry.NextDelay()
+			logger.Wf(ctx, "forward: ignore %v err %+v, failures=%v, retry in %v",
+				v.String(), err, v.retry.consecutiveFailures, delay)
+			if !shouldContinue {
+				logger.Wf(ctx, "forward: disabled task %v after %v consecutive failures",
+					v.UUID, FFmpegRetryMaxFailures)
+			}
+			select {
+			case <-ctx.Done():
+			case <-time.After(delay):
 			}
 			continue
 		}

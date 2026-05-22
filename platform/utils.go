@@ -2041,3 +2041,71 @@ func FFprobeFileFormat(ctx context.Context, filename string) (format *MediaForma
 	audio = matchAudio
 	return
 }
+
+// Retry backoff configuration for FFmpeg tasks.
+const (
+	FFmpegRetryInitialDelay         = 3 * time.Second
+	FFmpegRetryMaxDelay             = 60 * time.Second
+	FFmpegRetryBackoffFactor        = 2.0
+	FFmpegRetryMaxFailures          = 15
+	FFmpegRetrySuccessResetDuration = 30 * time.Second
+)
+
+// FFmpegRetryController manages retry backoff and max-retry limits for FFmpeg-based tasks.
+type FFmpegRetryController struct {
+	consecutiveFailures int
+	disabled            bool
+	lastAttemptStart    time.Time
+}
+
+func NewFFmpegRetryController() *FFmpegRetryController {
+	return &FFmpegRetryController{}
+}
+
+func (c *FFmpegRetryController) NextDelay() time.Duration {
+	delay := float64(FFmpegRetryInitialDelay)
+	for i := 0; i < c.consecutiveFailures; i++ {
+		delay *= FFmpegRetryBackoffFactor
+		if delay > float64(FFmpegRetryMaxDelay) {
+			return FFmpegRetryMaxDelay
+		}
+	}
+	return time.Duration(delay)
+}
+
+func (c *FFmpegRetryController) OnAttemptStart() {
+	c.lastAttemptStart = time.Now()
+}
+
+// OnAttemptResult processes the result of an FFmpeg attempt.
+// ready: whether FFmpeg reached "first normal frame" state.
+// Returns true if the task should continue retrying.
+func (c *FFmpegRetryController) OnAttemptResult(ready bool, err error) bool {
+	if err == nil {
+		c.consecutiveFailures = 0
+		return true
+	}
+
+	// If the attempt ran long enough, treat as partial success and reset counter.
+	if !c.lastAttemptStart.IsZero() && time.Since(c.lastAttemptStart) > FFmpegRetrySuccessResetDuration {
+		c.consecutiveFailures = 0
+	}
+
+	c.consecutiveFailures++
+
+	if c.consecutiveFailures >= FFmpegRetryMaxFailures {
+		c.disabled = true
+		return false
+	}
+	return true
+}
+
+func (c *FFmpegRetryController) IsDisabled() bool {
+	return c.disabled
+}
+
+func (c *FFmpegRetryController) Reset() {
+	c.consecutiveFailures = 0
+	c.disabled = false
+	c.lastAttemptStart = time.Time{}
+}

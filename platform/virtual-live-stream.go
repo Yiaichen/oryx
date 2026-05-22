@@ -1038,6 +1038,9 @@ type VLiveTask struct {
 	// The vLive worker.
 	vLiveWorker *VLiveWorker
 
+	// Retry controller for managing backoff and max-retry limits.
+	retry *FFmpegRetryController
+
 	// To protect the fields.
 	lock sync.Mutex
 }
@@ -1093,6 +1096,10 @@ func (v *VLiveTask) Restart(ctx context.Context) error {
 		return errors.Wrapf(err, "unmarshal %v", b)
 	}
 
+	if v.retry != nil {
+		v.retry.Reset()
+	}
+
 	return nil
 }
 
@@ -1129,6 +1136,7 @@ func (v *VLiveTask) queryFrame() (int32, string, string, string, string, string)
 
 func (v *VLiveTask) Initialize(ctx context.Context, w *VLiveWorker) error {
 	v.vLiveWorker = w
+	v.retry = NewFFmpegRetryController()
 	logger.Tf(ctx, "vLive: Initialize uuid=%v, platform=%v", v.UUID, v.Platform)
 
 	if err := v.saveTask(ctx); err != nil {
@@ -1176,12 +1184,31 @@ func (v *VLiveTask) Run(ctx context.Context) error {
 	}
 
 	for ctx.Err() == nil {
-		if err := pfn(ctx); err != nil {
-			logger.Wf(ctx, "ignore %v err %+v", v.String(), err)
-
+		if v.retry.IsDisabled() {
+			logger.Wf(ctx, "vLive: task disabled after %v consecutive failures, waiting for restart",
+				FFmpegRetryMaxFailures)
 			select {
 			case <-ctx.Done():
-			case <-time.After(3500 * time.Millisecond):
+			}
+			continue
+		}
+
+		v.retry.OnAttemptStart()
+		err := pfn(ctx)
+		ready := v.firstReadyTime != nil
+		shouldContinue := v.retry.OnAttemptResult(ready, err)
+
+		if err != nil {
+			delay := v.retry.NextDelay()
+			logger.Wf(ctx, "vLive: ignore %v err %+v, failures=%v, retry in %v",
+				v.String(), err, v.retry.consecutiveFailures, delay)
+			if !shouldContinue {
+				logger.Wf(ctx, "vLive: disabled task %v after %v consecutive failures",
+					v.UUID, FFmpegRetryMaxFailures)
+			}
+			select {
+			case <-ctx.Done():
+			case <-time.After(delay):
 			}
 			continue
 		}
