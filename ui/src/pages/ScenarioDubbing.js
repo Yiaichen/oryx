@@ -650,15 +650,36 @@ function DubbingUIControls({task, isFullscreen, setIsFullscreen, showHeader, set
 function DubbingUISubtitles({task, playerRef, isFullscreen, showHeader, showASR, showTranslation, requesting, activeGroup, isPlayingAudio, playSegment, replaySegment, playGroup, rephraseGroup, mergeToGroup}) {
   const {t} = useTranslation();
 
+  // Handle keydown event.
+  const userEventRef = React.useRef(null);
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      e.preventDefault();
+      if (e.code !== 'Space') return;
+      if (!e.target || !e.target.id || !e.target.id.startsWith('asr-group-')) return;
+      const index = e.target.id.split('-')[2];
+
+      const segment = task?.asr_response?.groups[index];
+      if (segment) playSegment(e, segment);
+      console.log(`user press code ${e.code}，div is ${e.target.id}, index is ${index}, segment is ${segment?.id}`);
+    };
+
+    const container = userEventRef.current;
+    if (container) container.addEventListener('keydown', handleKeyDown);
+    return () => {
+      container && container.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userEventRef, task, playSegment]);
+
   // How many groups to show when in the fullscreen.
-  const [historyGroups, setHistoryGroups] = React.useState(3);
+  const [historySegments, setHistorySegments] = React.useState(4);
   React.useEffect(() => {
     let v = 4;
     if (!showHeader) v += 2;
     if (!showASR) v += 3;
     if (!showTranslation) v += 3;
-    setHistoryGroups(v);
-  }, [showHeader, showASR, showTranslation, setHistoryGroups]);
+    setHistorySegments(v);
+  }, [showHeader, showASR, showTranslation, setHistorySegments]);
 
   const selectVariant = (index, g) => {
     if (g.free_space !== undefined) {
@@ -690,12 +711,27 @@ function DubbingUISubtitles({task, playerRef, isFullscreen, showHeader, showASR,
       if (!isFullscreen) return;
       if (!playerRef?.current) return;
       if (!task?.asr_response?.groups?.length) return;
+      if (playerRef.current.paused) return;
 
       let index = task?.asr_response?.groups?.findIndex(s => {
         return s.start <= playerRef.current.currentTime && playerRef.current.currentTime <= s.end;
       });
       if (index === -1) return;
-      index = Math.max(0, index - historyGroups);
+
+      // Focus on the current playing group.
+      if (true) {
+        const divId = `asr-group-${index}`;
+        const target = document.querySelector(`div#${divId}`);
+        if (target) target.focus();
+      }
+
+      // Scroll to the appropriate group view.
+      let availableSegments = historySegments;
+      for (let i = index - 1; i >= 0 && availableSegments > 0; i--) {
+        availableSegments -= task?.asr_response?.groups[i]?.segments?.length;
+        if (availableSegments >= 0) index--;
+      }
+      index = Math.max(0, index);
 
       const divId = `asr-group-${index}`;
       const target = document.querySelector(`div#${divId}`);
@@ -703,12 +739,12 @@ function DubbingUISubtitles({task, playerRef, isFullscreen, showHeader, showASR,
       //console.log(`Locate group ${index}, div ${divId}, time ${playerRef.current.currentTime}, group is ${group?.id}, ${group?.start} ~ ${group?.end}`);
     }, 800);
     return () => clearInterval(timer);
-  }, [playerRef, task, isPlayingAudio, isFullscreen, historyGroups]);
+  }, [playerRef, task, isPlayingAudio, isFullscreen, historySegments]);
 
-  return <>
+  return <div ref={userEventRef}>
     {task?.asr_response?.groups?.map((g, index) => {
       return (
-        <div id={`asr-group-${index}`} key={g.uuid}>
+        <div id={`asr-group-${index}`} key={g.uuid} tabIndex='0'>
           <Card className='ai-dubbing-group'>
             {showHeader && <>
               <Card.Header
@@ -799,7 +835,7 @@ function DubbingUISubtitles({task, playerRef, isFullscreen, showHeader, showASR,
         </div>
       );
     })}
-  </>;
+  </div>;
 }
 
 function DubbingStudioEditor({project, isFullscreen, setIsFullscreen}) {

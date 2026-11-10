@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024 Winlin
+// Copyright (c) 2022-2026 Winlin
 //
 // SPDX-License-Identifier: MIT
 package main
@@ -251,10 +251,6 @@ func handleHTTPService(ctx context.Context, handler *http.ServeMux) error {
 
 	if err := handleDubbingService(ctx, handler); err != nil {
 		return errors.Wrapf(err, "handle dubbing")
-	}
-
-	if err := handleAITalkService(ctx, handler); err != nil {
-		return errors.Wrapf(err, "handle AI talk")
 	}
 
 	var ep string

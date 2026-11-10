@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2022-2024 Winlin
+// Copyright (c) 2022-2026 Winlin
 //
 // SPDX-License-Identifier: MIT
 //
@@ -17,11 +17,8 @@ import ScenarioRecord from "./ScenarioRecord";
 import ScenarioVLive from "./ScenarioVLive";
 import {ScenarioVxOthers} from "./ScenarioOthers";
 import ScenarioTranscode from "./ScenarioTranscode";
-import ScenarioTranscript from "./ScenarioTranscript";
 import ScenarioLiveRoom from "./ScenarioLiveRoom";
 import ScenarioCamera from "./ScenarioCamera";
-import ScenarioDubbing from "./ScenarioDubbing";
-import ScenarioOCR from "./ScenarioOCR";
 
 export default function Scenario() {
   const [searchParams] = useSearchParams();
@@ -78,15 +75,6 @@ function ScenarioImpl({defaultActiveTab}) {
           <Tab eventKey="transcode" title={t('scenario.transcode')}>
             {activeTab === 'transcode' && <ScenarioTranscode {...{urls}} />}
           </Tab>
-          <Tab eventKey="transcript" title={t('transcript.title')}>
-            {activeTab === 'transcript' && <ScenarioTranscript/>}
-          </Tab>
-          <Tab eventKey="dubbing" title={t('dubb.title')}>
-            {activeTab === 'dubbing' && <ScenarioDubbing/>}
-          </Tab>
-          <Tab eventKey="ocr" title={t('ocr.title')}>
-            {activeTab === 'ocr' && <ScenarioOCR/>}
-          </Tab>
           <Tab eventKey="others" title={t('scenario.others')}>
             {activeTab === 'others' && <ScenarioVxOthers {...{urls}} />}
           </Tab>
@@ -95,4 +83,3 @@ function ScenarioImpl({defaultActiveTab}) {
     </>
   );
 }
-

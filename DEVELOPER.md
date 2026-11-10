@@ -1261,6 +1261,9 @@ Generally we follow this guide except for some legacy code.
 
 The following are the update records for the Oryx server.
 
+* v7.15:
+    * Docker: Upgrade the build and runtime toolchain and use SRS 7. v7.15.25
+    * HTTP-FLV: Always declare audio and video in the FLV header. v7.15.26
 * v5.15:
     * Forward: Support multiple forwarding servers. v5.15.1
     * ENV: Refine the environment variables. v5.15.2
@@ -1284,6 +1287,10 @@ The following are the update records for the Oryx server.
     * Dubbing: Support disable asr or translation. v5.15.19
     * Dubbing: Fix bug when changing ASR segment size. v5.15.20
     * Dubbing: Refine the window of text. [v5.15.20](https://github.com/ossrs/oryx/releases/tag/v5.15.20)
+    * Dubbing: Support space key to play/pause. v5.15.21
+    * AI: Support OpenAI o1-preview model. v5.15.22
+    * AI: Move Transcript, Dubbing, and OCR scenarios to discouraged. v5.15.23
+    * Live Room: Remove the AI assistant. v5.15.24
 * v5.14:
     * Merge features and bugfix from releases. v5.14.1
     * Dubbing: Support VoD dubbing for multiple languages. [v5.14.2](https://github.com/ossrs/oryx/releases/tag/v5.14.2)
