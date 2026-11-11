@@ -1189,7 +1189,12 @@ For multiple ports running in multiple containers in one host server:
 For limit that you can control:
 
 * `SRS_FORWARD_LIMIT`: The limit for SRS forward. Default: `10`.
-* `SRS_VLIVE_LIMIT`: The limit for SRS virtual live. Default: `10`.
+* `SRS_VLIVE_LIMIT`: The number of virtual live channels shown in the dashboard. Default: `20`.
+
+Explicit environment values override these defaults. If `SRS_VLIVE_LIMIT=10` is already set
+in the container environment or `containers/data/config/.env`, change it to `20` and restart
+Oryx to show 20 virtual live channels. The persisted `.env` takes precedence over the
+container environment. Existing channel configurations are preserved.
 
 For feature control:
 

@@ -49,6 +49,12 @@ func main() {
 	logger.Tf(ctx, "run ok")
 }
 
+func setStreamLimitDefaults() {
+	setEnvDefault("SRS_FORWARD_LIMIT", "10")
+	setEnvDefault("SRS_VLIVE_LIMIT", "20")
+	setEnvDefault("SRS_CAMERA_LIMIT", "10")
+}
+
 func doMain(ctx context.Context) error {
 	var showVersion bool
 	flag.BoolVar(&showVersion, "v", false, "Print version and quit")
@@ -128,9 +134,7 @@ func doMain(ctx context.Context) error {
 	setEnvDefault("RTC_PORT", "8000")
 
 	// For system limit.
-	setEnvDefault("SRS_FORWARD_LIMIT", "10")
-	setEnvDefault("SRS_VLIVE_LIMIT", "10")
-	setEnvDefault("SRS_CAMERA_LIMIT", "10")
+	setStreamLimitDefaults()
 
 	logger.Tf(ctx, "load .env as MGMT_PASSWORD=%vB, GO_PPROF=%v, "+
 		"SRS_PLATFORM_SECRET=%vB, CLOUD=%v, REGION=%v, SOURCE=%v, SRT_PORT=%v, RTC_PORT=%v, "+
